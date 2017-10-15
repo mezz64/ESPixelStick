@@ -44,6 +44,8 @@ const char BUILD_DATE[] = __DATE__ " " __TIME__;
 #define HTTP_PORT       80      /* Default web server port */
 #define MQTT_PORT       1883    /* Default MQTT port */
 #define DATA_PIN        2       /* Pixel output - GPIO2 */
+#define DATA_PIN2       1       /* Pixel output2 - GPIO1 */
+//#define DATA_PIN2       15       /* Pixel output2 - GPIO15 */
 #define EEPROM_BASE     0       /* EEPROM configuration base address */
 #define UNIVERSE_MAX    512     /* Max channels in a DMX Universe */
 #define PIXEL_LIMIT     1360    /* Total pixel limit - 40.85ms for 8 universes */
@@ -51,7 +53,7 @@ const char BUILD_DATE[] = __DATE__ " " __TIME__;
 #define E131_TIMEOUT    1000    /* Force refresh every second an E1.31 packet is not seen */
 #define CONNECT_TIMEOUT 15000   /* 15 seconds */
 #define REBOOT_DELAY    100     /* Delay for rebooting once reboot flag is set */
-#define LOG_PORT        Serial  /* Serial port for console logging */
+#define LOG_PORT        NULL  /* Serial port for console logging */
 
 /* E1.33 / RDMnet stuff - to be moved to library */
 #define RDMNET_DNSSD_SRV_TYPE   "draft-e133.tcp"
@@ -76,7 +78,9 @@ enum class TestMode : uint8_t {
     CHASE,
     RAINBOW,
     VIEW_STREAM,
-    MQTT
+    MQTT,
+    MQTT_FADEON,
+    MQTT_FADEOFF
 };
 
 typedef struct {
@@ -84,6 +88,13 @@ typedef struct {
     uint16_t step;      /* Step in testing routine */
     uint32_t last;      /* Last update */
 } testing_t;
+
+typedef struct {
+    int stepr, stepg, stepb;    /* Hold requested color steps*/
+    int tmpr, tmpg, tmpb;    /* Hold temp color values*/
+    uint16_t loopcount;      /* Step in fade routine */
+    uint32_t last;      /* Last update */
+} mqttfade_t;
 
 /* Configuration structure */
 typedef struct {

@@ -167,8 +167,8 @@ void procS(uint8_t *data, AsyncWebSocketClient *client) {
     DynamicJsonBuffer jsonBuffer;
     JsonObject &json = jsonBuffer.parseObject(reinterpret_cast<char*>(data + 2));
     if (!json.success()) {
-        LOG_PORT.println(F("*** procS(): Parse Error ***"));
-        LOG_PORT.println(reinterpret_cast<char*>(data));
+        //LOG_PORT.println(F("*** procS(): Parse Error ***"));
+        //LOG_PORT.println(reinterpret_cast<char*>(data));
         return;
     }
 
@@ -255,14 +255,14 @@ void handle_fw_upload(AsyncWebServerRequest *request, String filename,
         size_t index, uint8_t *data, size_t len, bool final) {
     if (!index) {
         WiFiUDP::stopAll();
-        LOG_PORT.print(F("* Upload Started: "));
-        LOG_PORT.println(filename.c_str());
+        //LOG_PORT.print(F("* Upload Started: "));
+        //LOG_PORT.println(filename.c_str());
         efupdate.begin();
     }
 
     if (!efupdate.process(data, len)) {
-        LOG_PORT.print(F("*** UPDATE ERROR: "));
-        LOG_PORT.println(String(efupdate.getError()));
+        //LOG_PORT.print(F("*** UPDATE ERROR: "));
+        //LOG_PORT.println(String(efupdate.getError()));
     }
 
     if (efupdate.hasError())
@@ -270,7 +270,7 @@ void handle_fw_upload(AsyncWebServerRequest *request, String filename,
                 String(efupdate.getError()));
 
     if (final) {
-        LOG_PORT.println(F("* Upload Finished."));
+        //LOG_PORT.println(F("* Upload Finished."));
         efupdate.end();
         SPIFFS.begin();
         saveConfig();
@@ -302,23 +302,23 @@ void wsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
                         break;
                 }
             } else {
-                LOG_PORT.println(F("-- binary message --"));
+                //LOG_PORT.println(F("-- binary message --"));
             }
             break;
         }
         case WS_EVT_CONNECT:
-            LOG_PORT.print(F("* WS Connect - "));
-            LOG_PORT.println(client->id());
+            //LOG_PORT.print(F("* WS Connect - "));
+            //LOG_PORT.println(client->id());
             break;
         case WS_EVT_DISCONNECT:
-            LOG_PORT.print(F("* WS Disconnect - "));
-            LOG_PORT.println(client->id());
+            //LOG_PORT.print(F("* WS Disconnect - "));
+            //LOG_PORT.println(client->id());
             break;
         case WS_EVT_PONG:
-            LOG_PORT.println(F("* WS PONG *"));
+            //LOG_PORT.println(F("* WS PONG *"));
             break;
         case WS_EVT_ERROR:
-            LOG_PORT.println(F("** WS ERROR **"));
+            //LOG_PORT.println(F("** WS ERROR **"));
             break;
     }
 }

@@ -22,6 +22,7 @@
 
 #define UART_INV_MASK  (0x3f << 19)
 #define UART 1
+#define UART_NEW 0
 
 /* Gamma correction table until pow() is fixed */
 const uint8_t GAMMA_2811[] = {
@@ -53,6 +54,8 @@ const char LOOKUP_2811[4] = {
     0b00110100,     // 10 - (1)110 100(0)
     0b00000100      // 11 - (1)110 111(0)
 };
+
+#define CH_PER_PIN    450
 
 #define GECE_DEFAULT_BRIGHTNESS 0xCC
 
@@ -116,6 +119,8 @@ class PixelDriver {
     PixelColor color;           // Color Order
     uint8_t     pin;            // Pin for bit-banging
     uint8_t     *pixdata;       // Pixel buffer
+    uint8_t     *pixdata1;       // Pixel buffer 1
+    uint8_t     *pixdata2;       // Pixel buffer 2
     uint8_t     *asyncdata;     // Async buffer
     uint8_t     *pbuff;         // GECE Packet Buffer
     uint16_t    numPixels;      // Number of pixels
@@ -132,6 +137,8 @@ class PixelDriver {
     /* FIFO Handlers */
     static const uint8_t* ICACHE_RAM_ATTR fillWS2811(const uint8_t *buff,
             const uint8_t *tail);
+    static const uint8_t* ICACHE_RAM_ATTR fillWS28112(const uint8_t *buff,
+            const uint8_t *tail);
 
     /* Interrupt Handlers */
     static void ICACHE_RAM_ATTR handleWS2811(void *param);
@@ -141,9 +148,19 @@ class PixelDriver {
         return (U1S >> USTXC) & 0xff;
     }
 
+    /* Returns number of bytes waiting in the TX FIFO of UART0 */
+    static inline uint8_t getFifoLength2() {
+        return (U0S >> USTXC) & 0xff;
+    }
+
     /* Append a byte to the TX FIFO of UART1 */
     static inline void enqueue(uint8_t byte) {
         U1F = byte;
+    }
+
+    /* Append a byte to the TX FIFO of UART0 */
+    static inline void enqueue2(uint8_t byte) {
+        U0F = byte;
     }
 };
 

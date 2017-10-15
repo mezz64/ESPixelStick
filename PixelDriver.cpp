@@ -32,6 +32,8 @@ extern "C" {
 
 static const uint8_t    *uart_buffer;       // Buffer tracker
 static const uint8_t    *uart_buffer_tail;  // Buffer tracker
+static const uint8_t    *uart_buffer2;       // Buffer tracker
+static const uint8_t    *uart_buffer_tail2;  // Buffer tracker
 static bool             ws2811gamma;        // Gamma flag
 
 uint8_t PixelDriver::rOffset = 0;
@@ -111,13 +113,23 @@ void PixelDriver::setGamma(bool gamma) {
 
 void PixelDriver::ws2811_init() {
     /* Serial rate is 4x 800KHz for WS2811 */
-    Serial1.begin(3200000, SERIAL_6N1, SERIAL_TX_ONLY);
+    Serial1.begin(3200000, SERIAL_6N1, SERIAL_TX_ONLY);  //Wemos pin D4, GPIO2
+
+    Serial.begin(3200000, SERIAL_6N1, SERIAL_TX_ONLY);
+    //Serial.swap();  //Make TX on Wemos pin D8, GPIO15
+    
     CLEAR_PERI_REG_MASK(UART_CONF0(UART), UART_INV_MASK);
     SET_PERI_REG_MASK(UART_CONF0(UART), (BIT(22)));
+
+    CLEAR_PERI_REG_MASK(UART_CONF0(UART_NEW), UART_INV_MASK);
+    SET_PERI_REG_MASK(UART_CONF0(UART_NEW), (BIT(22)));
 
     /* Clear FIFOs */
     SET_PERI_REG_MASK(UART_CONF0(UART), UART_RXFIFO_RST | UART_TXFIFO_RST);
     CLEAR_PERI_REG_MASK(UART_CONF0(UART), UART_RXFIFO_RST | UART_TXFIFO_RST);
+
+    SET_PERI_REG_MASK(UART_CONF0(UART_NEW), UART_RXFIFO_RST | UART_TXFIFO_RST);
+    CLEAR_PERI_REG_MASK(UART_CONF0(UART_NEW), UART_RXFIFO_RST | UART_TXFIFO_RST);
 
     /* Disable all interrupts */
     ETS_UART_INTR_DISABLE();
@@ -127,12 +139,16 @@ void PixelDriver::ws2811_init() {
 
     /* Set TX FIFO trigger. 80 bytes gives 200 microsecs to refill the FIFO */
     WRITE_PERI_REG(UART_CONF1(UART), 80 << UART_TXFIFO_EMPTY_THRHD_S);
+    WRITE_PERI_REG(UART_CONF1(UART_NEW), 80 << UART_TXFIFO_EMPTY_THRHD_S);
+
 
     /* Disable RX & TX interrupts. It is enabled by uart.c in the SDK */
     CLEAR_PERI_REG_MASK(UART_INT_ENA(UART), UART_RXFIFO_FULL_INT_ENA | UART_TXFIFO_EMPTY_INT_ENA);
+    CLEAR_PERI_REG_MASK(UART_INT_ENA(UART_NEW), UART_RXFIFO_FULL_INT_ENA | UART_TXFIFO_EMPTY_INT_ENA);
 
     /* Clear all pending interrupts in UART1 */
     WRITE_PERI_REG(UART_INT_CLR(UART), 0xffff);
+    WRITE_PERI_REG(UART_INT_CLR(UART_NEW), 0xffff);
 
     /* Reenable interrupts */
     ETS_UART_INTR_ENABLE();
@@ -195,13 +211,23 @@ void ICACHE_RAM_ATTR PixelDriver::handleWS2811(void *param) {
         WRITE_PERI_REG(UART_INT_CLR(UART1), 0xffff);
     }
 
-    /* Clear if UART0 */
-    if (READ_PERI_REG(UART_INT_ST(UART0)))
-        WRITE_PERI_REG(UART_INT_CLR(UART0), 0xffff);
+    /* Process if UART0 */
+    if (READ_PERI_REG(UART_INT_ST(UART0))) {
+      // Fill the FIFO with new data
+      uart_buffer2 = fillWS28112(uart_buffer2, uart_buffer_tail2);
+
+      // Disable TX interrupt when done
+      if (uart_buffer2 == uart_buffer_tail2)
+          CLEAR_PERI_REG_MASK(UART_INT_ENA(UART0), UART_TXFIFO_EMPTY_INT_ENA);
+
+      // Clear all interrupts flags
+      WRITE_PERI_REG(UART_INT_CLR(UART0), 0xffff);
+    }
 }
 
 const uint8_t* ICACHE_RAM_ATTR PixelDriver::fillWS2811(const uint8_t *buff,
         const uint8_t *tail) {
+
     uint8_t avail = (UART_TX_FIFO_SIZE - getFifoLength()) / 4;
     if (tail - buff > avail)
         tail = buff + avail;
@@ -254,19 +280,85 @@ const uint8_t* ICACHE_RAM_ATTR PixelDriver::fillWS2811(const uint8_t *buff,
     return buff;
 }
 
+const uint8_t* ICACHE_RAM_ATTR PixelDriver::fillWS28112(const uint8_t *buff,
+        const uint8_t *tail) {
+
+    uint8_t avail = (UART_TX_FIFO_SIZE - getFifoLength2()) / 4;
+    if (tail - buff > avail)
+        tail = buff + avail;
+
+    if (ws2811gamma) {
+        while (buff + 2 < tail) {
+            uint8_t subpix = buff[rOffset];
+            enqueue2(LOOKUP_2811[(GAMMA_2811[subpix] >> 6) & 0x3]);
+            enqueue2(LOOKUP_2811[(GAMMA_2811[subpix] >> 4) & 0x3]);
+            enqueue2(LOOKUP_2811[(GAMMA_2811[subpix] >> 2) & 0x3]);
+            enqueue2(LOOKUP_2811[GAMMA_2811[subpix] & 0x3]);
+
+            subpix = buff[gOffset];
+            enqueue2(LOOKUP_2811[(GAMMA_2811[subpix] >> 6) & 0x3]);
+            enqueue2(LOOKUP_2811[(GAMMA_2811[subpix] >> 4) & 0x3]);
+            enqueue2(LOOKUP_2811[(GAMMA_2811[subpix] >> 2) & 0x3]);
+            enqueue2(LOOKUP_2811[GAMMA_2811[subpix] & 0x3]);
+
+            subpix = buff[bOffset];
+            enqueue2(LOOKUP_2811[(GAMMA_2811[subpix] >> 6) & 0x3]);
+            enqueue2(LOOKUP_2811[(GAMMA_2811[subpix] >> 4) & 0x3]);
+            enqueue2(LOOKUP_2811[(GAMMA_2811[subpix] >> 2) & 0x3]);
+            enqueue2(LOOKUP_2811[GAMMA_2811[subpix] & 0x3]);
+
+            buff += 3;
+        }
+    } else {
+        while (buff + 2 < tail) {
+            uint8_t subpix = buff[rOffset];
+            enqueue2(LOOKUP_2811[(subpix >> 6) & 0x3]);
+            enqueue2(LOOKUP_2811[(subpix >> 4) & 0x3]);
+            enqueue2(LOOKUP_2811[(subpix >> 2) & 0x3]);
+            enqueue2(LOOKUP_2811[subpix & 0x3]);
+
+            subpix = buff[gOffset];
+            enqueue2(LOOKUP_2811[(subpix >> 6) & 0x3]);
+            enqueue2(LOOKUP_2811[(subpix >> 4) & 0x3]);
+            enqueue2(LOOKUP_2811[(subpix >> 2) & 0x3]);
+            enqueue2(LOOKUP_2811[subpix & 0x3]);
+
+            subpix = buff[bOffset];
+            enqueue2(LOOKUP_2811[(subpix >> 6) & 0x3]);
+            enqueue2(LOOKUP_2811[(subpix >> 4) & 0x3]);
+            enqueue2(LOOKUP_2811[(subpix >> 2) & 0x3]);
+            enqueue2(LOOKUP_2811[subpix & 0x3]);
+
+            buff += 3;
+        }
+    }
+    return buff;
+}
+
 void PixelDriver::show() {
     if (!pixdata) return;
 
     if (type == PixelType::WS2811) {
-        uart_buffer = pixdata;
-        uart_buffer_tail = pixdata + szBuffer;
+    
+        pixdata1 = pixdata;
+        pixdata2 = pixdata + ((numPixels / 2) * 3);
+        //pixdata2 = pixdata + CH_PER_PIN;
+      
+        uart_buffer = pixdata1;
+        uart_buffer_tail = pixdata1 + szBuffer;
+
+        uart_buffer2 = pixdata2;
+        uart_buffer_tail2 = pixdata2 + szBuffer;
+
         SET_PERI_REG_MASK(UART_INT_ENA(1), UART_TXFIFO_EMPTY_INT_ENA);
+        SET_PERI_REG_MASK(UART_INT_ENA(0), UART_TXFIFO_EMPTY_INT_ENA);
 
         startTime = micros();
 
         // Copy the pixels to the idle buffer and swap them
         memcpy(asyncdata, pixdata, szBuffer);
         std::swap(asyncdata, pixdata);
+
     } else if (type == PixelType::GECE) {
          uint32_t packet = 0;
 

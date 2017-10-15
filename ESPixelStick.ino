@@ -24,8 +24,8 @@
 /* Output Mode has been moved to ESPixelStick.h */
 
 /* Fallback configuration if config.json is empty or fails */
-const char ssid[] = "ENTER_SSID_HERE";
-const char passphrase[] = "ENTER_PASSPHRASE_HERE";
+const char ssid[] = "MezzFoxIOT";
+const char passphrase[] = "Mihalic2581338";
 
 /*****************************************/
 /*         END - Configuration           */
@@ -82,6 +82,10 @@ const char MQTT_LIGHT_RGB_COMMAND_TOPIC[] = "/rgb/set";
 // MQTT Payloads by default (on/off)
 const char LIGHT_ON[] = "ON";
 const char LIGHT_OFF[] = "OFF";
+const char LIGHT_FADE_ON[] = "FADEON";
+const char LIGHT_FADE_OFF[] = "FADEOFF";
+
+const int MQTT_FADE_LENGTH = 15; //Fade time in ms
 
 // MQTT variables used to store the state, the brightness and the color of the light
 boolean m_rgb_state = false;
@@ -99,6 +103,7 @@ const char CONFIG_FILE[] = "/config.json";
 
 ESPAsyncE131        e131(10);       // ESPAsyncE131 with X buffers
 testing_t           testing;        // Testing mode
+mqttfade_t          mqttfade;       // MQTT Fade Effect
 config_t            config;         // Current configuration
 uint32_t            *seqError;      // Sequence error tracking for each universe
 uint16_t            uniLast = 1;    // Last Universe to listen for
@@ -147,23 +152,26 @@ void setup() {
     pinMode(DATA_PIN, OUTPUT);
     digitalWrite(DATA_PIN, LOW);
 
+    pinMode(DATA_PIN2, OUTPUT);
+    digitalWrite(DATA_PIN2, LOW);
+
     // Setup serial log port
-    LOG_PORT.begin(115200);
+    //LOG_PORT.begin(115200);
     delay(10);
 
 #if defined(DEBUG)
-    ets_install_putc1((void *) &_u0_putc);
-    system_set_os_print(1);
+    //ets_install_putc1((void *) &_u0_putc);
+    //system_set_os_print(1);
 #endif
 
     // Enable SPIFFS
     SPIFFS.begin();
 
-    LOG_PORT.println("");
-    LOG_PORT.print(F("ESPixelStick v"));
+    //LOG_PORT.println("");
+    //LOG_PORT.print(F("ESPixelStick v"));
     for (uint8_t i = 0; i < strlen_P(VERSION); i++)
-        LOG_PORT.print((char)(pgm_read_byte(VERSION + i)));
-    LOG_PORT.println("");
+        //LOG_PORT.print((char)(pgm_read_byte(VERSION + i)));
+    //LOG_PORT.println("");
 
     // Load configuration from SPIFFS and set Hostname
     loadConfig();
@@ -186,7 +194,7 @@ void setup() {
     // Fallback to default SSID and passphrase if we fail to connect
     initWifi();
     if (WiFi.status() != WL_CONNECTED) {
-        LOG_PORT.println(F("*** Timeout - Reverting to default SSID ***"));
+        //LOG_PORT.println(F("*** Timeout - Reverting to default SSID ***"));
         config.ssid = ssid;
         config.passphrase = passphrase;
         initWifi();
@@ -195,12 +203,12 @@ void setup() {
     // If we fail again, go SoftAP or reboot
     if (WiFi.status() != WL_CONNECTED) {
         if (config.ap_fallback) {
-            LOG_PORT.println(F("**** FAILED TO ASSOCIATE WITH AP, GOING SOFTAP ****"));
+            //LOG_PORT.println(F("**** FAILED TO ASSOCIATE WITH AP, GOING SOFTAP ****"));
             WiFi.mode(WIFI_AP);
             String ssid = "ESPixelStick " + String(config.hostname);
             WiFi.softAP(ssid.c_str());
         } else {
-            LOG_PORT.println(F("**** FAILED TO ASSOCIATE WITH AP, REBOOTING ****"));
+            //LOG_PORT.println(F("**** FAILED TO ASSOCIATE WITH AP, REBOOTING ****"));
             ESP.restart();
         }
     }
@@ -214,16 +222,16 @@ void setup() {
     if (config.multicast) {
         if (e131.begin(E131_MULTICAST, config.universe,
                 uniLast - config.universe + 1)) {
-            LOG_PORT.println(F("- Multicast Enabled"));
+            //LOG_PORT.println(F("- Multicast Enabled"));
         }  else {
-            LOG_PORT.println(F("*** MULTICAST INIT FAILED ****"));
+            //LOG_PORT.println(F("*** MULTICAST INIT FAILED ****"));
         }
     } else {
         if (e131.begin(E131_UNICAST)) {
-            LOG_PORT.print(F("- Unicast port: "));
-            LOG_PORT.println(E131_DEFAULT_PORT);
+            //LOG_PORT.print(F("- Unicast port: "));
+            //LOG_PORT.println(E131_DEFAULT_PORT);
         } else {
-            LOG_PORT.println(F("*** UNICAST INIT FAILED ****"));
+            //LOG_PORT.println(F("*** UNICAST INIT FAILED ****"));
         }
     }
 
@@ -258,11 +266,11 @@ void initWifi() {
     connectWifi();
     uint32_t timeout = millis();
     while (WiFi.status() != WL_CONNECTED) {
-        LOG_PORT.print(".");
+        //LOG_PORT.print(".");
         delay(500);
         if (millis() - timeout > CONNECT_TIMEOUT) {
-            LOG_PORT.println("");
-            LOG_PORT.println(F("*** Failed to connect ***"));
+            //LOG_PORT.println("");
+            //LOG_PORT.println(F("*** Failed to connect ***"));
             break;
         }
     }
@@ -271,15 +279,15 @@ void initWifi() {
 void connectWifi() {
     delay(secureRandom(100,500));
 
-    LOG_PORT.println("");
-    LOG_PORT.print(F("Connecting to "));
-    LOG_PORT.print(config.ssid);
-    LOG_PORT.print(F(" as "));
-    LOG_PORT.println(config.hostname);
+    //LOG_PORT.println("");
+    //LOG_PORT.print(F("Connecting to "));
+    //LOG_PORT.print(config.ssid);
+    //LOG_PORT.print(F(" as "));
+    //LOG_PORT.println(config.hostname);
 
     WiFi.begin(config.ssid.c_str(), config.passphrase.c_str());
     if (config.dhcp) {
-        LOG_PORT.print(F("Connecting with DHCP"));
+        //LOG_PORT.print(F("Connecting with DHCP"));
     } else {
         // We don't use DNS, so just set it to our gateway
         WiFi.config(IPAddress(config.ip[0], config.ip[1], config.ip[2], config.ip[3]),
@@ -287,14 +295,14 @@ void connectWifi() {
                     IPAddress(config.netmask[0], config.netmask[1], config.netmask[2], config.netmask[3]),
                     IPAddress(config.gateway[0], config.gateway[1], config.gateway[2], config.gateway[3])
         );
-        LOG_PORT.print(F("Connecting with Static IP"));
+        //LOG_PORT.print(F("Connecting with Static IP"));
     }
 }
 
 void onWifiConnect(const WiFiEventStationModeGotIP &event) {
-    LOG_PORT.println("");
-    LOG_PORT.print(F("Connected with IP: "));
-    LOG_PORT.println(WiFi.localIP());
+    //LOG_PORT.println("");
+    //LOG_PORT.print(F("Connected with IP: "));
+    //LOG_PORT.println(WiFi.localIP());
 
     // Setup MQTT connection if enabled
     if (config.mqtt)
@@ -315,12 +323,12 @@ void onWifiConnect(const WiFiEventStationModeGotIP &event) {
         MDNS.addServiceTxt("e131", "udp", "Model", "ESPixelStick");
         MDNS.addServiceTxt("e131", "udp", "Manuf", "Forkineye");
     } else {
-        LOG_PORT.println(F("*** Error setting up mDNS responder ***"));
+        //LOG_PORT.println(F("*** Error setting up mDNS responder ***"));
     }
 }
 
 void onWiFiDisconnect(const WiFiEventStationModeDisconnected &event) {
-    LOG_PORT.println(F("*** WiFi Disconnected ***"));
+    //LOG_PORT.println(F("*** WiFi Disconnected ***"));
 
     // Pause MQTT reconnect while WiFi is reconnecting
     mqttTicker.detach();
@@ -350,13 +358,13 @@ void multiSub() {
 /////////////////////////////////////////////////////////
 
 void connectToMqtt() {
-    LOG_PORT.print(F("- Connecting to MQTT Broker "));
-    LOG_PORT.println(config.mqtt_ip);
+    //LOG_PORT.print(F("- Connecting to MQTT Broker "));
+    //LOG_PORT.println(config.mqtt_ip);
     mqtt.connect();
 }
 
 void onMqttConnect(bool sessionPresent) {
-    LOG_PORT.println(F("- MQTT Connected"));
+    //LOG_PORT.println(F("- MQTT Connected"));
 
     // Setup subscriptions
     mqtt.subscribe(String(config.mqtt_topic + MQTT_LIGHT_COMMAND_TOPIC).c_str(), 0);
@@ -370,7 +378,7 @@ void onMqttConnect(bool sessionPresent) {
 }
 
 void onMqttDisconnect(AsyncMqttClientDisconnectReason reason) {
-    LOG_PORT.println(F("*** MQTT Disconnected ***"));
+    //LOG_PORT.println(F("*** MQTT Disconnected ***"));
     if (WiFi.isConnected()) {
         mqttTicker.once(2, connectToMqtt);
     }
@@ -405,6 +413,32 @@ Serial.println(payload);
                 setStatic(0, 0, 0);
                 publishRGBState();
             }
+        } else if (payload.equals(String(LIGHT_FADE_ON))) {
+            if (m_rgb_state != true) {
+                m_rgb_state = true;
+                mqttfade.stepr = calculateStep(0, m_rgb_red);
+                mqttfade.stepg = calculateStep(0, m_rgb_green);
+                mqttfade.stepb = calculateStep(0, m_rgb_blue);
+                mqttfade.tmpr = 0;
+                mqttfade.tmpg = 0;
+                mqttfade.tmpb = 0;
+                mqttfade.loopcount = 0;
+                mqttfade.last = 0;
+                config.testmode = TestMode::MQTT_FADEON;
+            }
+        } else if (payload.equals(String(LIGHT_FADE_OFF))) {
+            if (m_rgb_state) {
+                m_rgb_state = false;
+                mqttfade.stepr = calculateStep(m_rgb_red, 0);
+                mqttfade.stepg = calculateStep(m_rgb_green, 0);
+                mqttfade.stepb = calculateStep(m_rgb_blue, 0);
+                mqttfade.tmpr = m_rgb_red;
+                mqttfade.tmpg = m_rgb_green;
+                mqttfade.tmpb = m_rgb_blue;
+                mqttfade.loopcount = 0;
+                mqttfade.last = 0;
+                config.testmode = TestMode::MQTT_FADEOFF;
+            }
         }
     } else if (String(config.mqtt_topic + MQTT_LIGHT_BRIGHTNESS_COMMAND_TOPIC).equals(topic)) {
         uint8_t brightness = payload.toInt();
@@ -412,7 +446,9 @@ Serial.println(payload);
             return;
         } else {
             m_rgb_brightness = brightness;
-            setStatic(m_rgb_red, m_rgb_green, m_rgb_blue);
+            if (m_rgb_state) {
+              setStatic(m_rgb_red, m_rgb_green, m_rgb_blue);
+            }
             publishRGBBrightness();
         }
     } else if (String(config.mqtt_topic + MQTT_LIGHT_RGB_COMMAND_TOPIC).equals(topic)) {
@@ -423,8 +459,10 @@ Serial.println(payload);
         m_rgb_red = payload.substring(0, firstIndex).toInt();
         m_rgb_green = payload.substring(firstIndex + 1, lastIndex).toInt();
         m_rgb_blue = payload.substring(lastIndex + 1).toInt();
-   
-        setStatic(m_rgb_red, m_rgb_green, m_rgb_blue);
+
+        if (m_rgb_state) {
+          setStatic(m_rgb_red, m_rgb_green, m_rgb_blue);
+        }
         publishRGBColor();
     }
 }
@@ -496,8 +534,8 @@ void initWeb() {
 
     web.begin();
 
-    LOG_PORT.print(F("- Web Server started on port "));
-    LOG_PORT.println(HTTP_PORT);
+    //LOG_PORT.print(F("- Web Server started on port "));
+    //LOG_PORT.println(HTTP_PORT);
 }
 
 /////////////////////////////////////////////////////////
@@ -605,12 +643,12 @@ void updateConfig() {
 #elif defined(ESPS_MODE_SERIAL)
     serial.begin(&SEROUT_PORT, config.serial_type, config.channel_count, config.baudrate);
 #endif
-    LOG_PORT.print(F("- Listening for "));
-    LOG_PORT.print(config.channel_count);
-    LOG_PORT.print(F(" channels, from Universe "));
-    LOG_PORT.print(config.universe);
-    LOG_PORT.print(F(" to "));
-    LOG_PORT.println(uniLast);
+    //LOG_PORT.print(F("- Listening for "));
+    //LOG_PORT.print(config.channel_count);
+    //LOG_PORT.print(F(" channels, from Universe "));
+    //LOG_PORT.print(config.universe);
+    //LOG_PORT.print(F(" to "));
+    //LOG_PORT.println(uniLast);
 
     // Setup IGMP subscriptions if multicast is enabled
     if (config.multicast)
@@ -687,7 +725,7 @@ void loadConfig() {
     // Load CONFIG_FILE json. Create and init with defaults if not found
     File file = SPIFFS.open(CONFIG_FILE, "r");
     if (!file) {
-        LOG_PORT.println(F("- No configuration file found."));
+        //LOG_PORT.println(F("- No configuration file found."));
         config.ssid = ssid;
         config.passphrase = passphrase;
         saveConfig();
@@ -695,7 +733,7 @@ void loadConfig() {
         // Parse CONFIG_FILE json
         size_t size = file.size();
         if (size > CONFIG_MAX_SIZE) {
-            LOG_PORT.println(F("*** Configuration File too large ***"));
+            //LOG_PORT.println(F("*** Configuration File too large ***"));
             return;
         }
 
@@ -705,14 +743,14 @@ void loadConfig() {
         DynamicJsonBuffer jsonBuffer;
         JsonObject &json = jsonBuffer.parseObject(buf.get());
         if (!json.success()) {
-            LOG_PORT.println(F("*** Configuration File Format Error ***"));
+            //LOG_PORT.println(F("*** Configuration File Format Error ***"));
             return;
         }
 
         dsNetworkConfig(json);
         dsDeviceConfig(json);
 
-        LOG_PORT.println(F("- Configuration loaded."));
+        //LOG_PORT.println(F("- Configuration loaded."));
     }
 
     // Validate it
@@ -796,11 +834,11 @@ void saveConfig() {
     // Save Config
     File file = SPIFFS.open(CONFIG_FILE, "w");
     if (!file) {
-        LOG_PORT.println(F("*** Error creating configuration file ***"));
+        //LOG_PORT.println(F("*** Error creating configuration file ***"));
         return;
     } else {
         file.println(jsonString);
-        LOG_PORT.println(F("* Configuration saved."));
+        //LOG_PORT.println(F("* Configuration saved."));
     }
 }
 
@@ -974,6 +1012,57 @@ void loop() {
                     testing.step++;
                 }
                 break;
+                
+            case TestMode::MQTT_FADEON:
+                //Fade On things           
+                if (millis() - mqttfade.last > MQTT_FADE_LENGTH) {
+                    if (mqttfade.loopcount <= 1020) {
+                        mqttfade.last = millis();
+                        mqttfade.tmpr = calculateVal(mqttfade.stepr, mqttfade.tmpr, mqttfade.loopcount);
+                        mqttfade.tmpg = calculateVal(mqttfade.stepg, mqttfade.tmpg, mqttfade.loopcount);
+                        mqttfade.tmpb = calculateVal(mqttfade.stepb, mqttfade.tmpb, mqttfade.loopcount);
+#if defined(ESPS_MODE_PIXEL)
+                        // Populate pixels
+                        for (int i=0; i < (config.channel_count / 3); i++) {
+                            int ch_offset = i*3;
+                            pixels.setValue(ch_offset++, mqttfade.tmpr);
+                            pixels.setValue(ch_offset++, mqttfade.tmpg);
+                            pixels.setValue(ch_offset, mqttfade.tmpb);
+                        }
+#endif
+                        mqttfade.loopcount++;
+                    } else {
+                        publishRGBState();
+                        config.testmode = TestMode::MQTT;
+                    }
+                }
+                break;
+
+            case TestMode::MQTT_FADEOFF:
+                //Fade Off things       
+                if (millis() - mqttfade.last > MQTT_FADE_LENGTH) {
+                    if (mqttfade.loopcount <= 1020) {
+                        mqttfade.last = millis();
+                        mqttfade.tmpr = calculateVal(mqttfade.stepr, mqttfade.tmpr, mqttfade.loopcount);
+                        mqttfade.tmpg = calculateVal(mqttfade.stepg, mqttfade.tmpg, mqttfade.loopcount);
+                        mqttfade.tmpb = calculateVal(mqttfade.stepb, mqttfade.tmpb, mqttfade.loopcount);
+#if defined(ESPS_MODE_PIXEL)
+                        // Populate pixels
+                        for (int i=0; i < (config.channel_count / 3); i++) {
+                            int ch_offset = i*3;
+                            pixels.setValue(ch_offset++, mqttfade.tmpr);
+                            pixels.setValue(ch_offset++, mqttfade.tmpg);
+                            pixels.setValue(ch_offset, mqttfade.tmpb);
+                        }
+#endif
+                        mqttfade.loopcount++;
+                    } else {
+                        publishRGBState();
+                        config.testmode = TestMode::DISABLED;
+                    }
+                }
+                break;
+              
         }
     }
 
@@ -986,4 +1075,41 @@ void loop() {
     if (serial.canRefresh())
         serial.show();
 #endif
+}
+
+
+/////////////////////////////////////////////////////////
+//
+//  MQTT Fade Helpers
+//
+/////////////////////////////////////////////////////////
+int calculateStep(int prevValue, int endValue) {
+  int step = endValue - prevValue; // What's the overall gap?
+  if (step) {                      // If its non-zero,
+    step = 1020 / step;          //   divide by 1020
+  }
+  return step;
+}
+/* The next function is calculateVal. When the loop value, i,
+   reaches the step size appropriate for one of the
+   colors, it increases or decreases the value of that color by 1.
+   (R, G, and B are each calculated separately.)
+*/
+int calculateVal(int step, int val, int i) {
+  if ((step) && i % step == 0) { // If step is non-zero and its time to change a value,
+    if (step > 0) {              //   increment the value if step is positive...
+      val += 1;
+    }
+    else if (step < 0) {         //   ...or decrement it if step is negative
+      val -= 1;
+    }
+  }
+  // Defensive driving: make sure val stays in the range 0-255
+  if (val > 255) {
+    val = 255;
+  }
+  else if (val < 0) {
+    val = 0;
+  }
+  return val;
 }
