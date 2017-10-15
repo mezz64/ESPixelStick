@@ -80,7 +80,11 @@ enum class TestMode : uint8_t {
     VIEW_STREAM,
     MQTT,
     MQTT_FADEON,
-    MQTT_FADEOFF
+    MQTT_FADEOFF,
+    MQTT_FADEON1,
+    MQTT_FADEOFF1,
+    MQTT_FADEON2,
+    MQTT_FADEOFF2
 };
 
 typedef struct {
