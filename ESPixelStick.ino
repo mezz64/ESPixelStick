@@ -416,14 +416,14 @@ Serial.println(payload);
             config.testmode = TestMode::MQTT;
             if (m_rgb_state != true) {
                 m_rgb_state = true;
-                setStatic(m_rgb_red, m_rgb_green, m_rgb_blue);
+                setStatic(m_rgb_red, m_rgb_green, m_rgb_blue, m_rgb_brightness);
                 publishRGBState();
             }
         } else if (payload.equals(String(LIGHT_OFF))) {
             config.testmode = TestMode::DISABLED;
             if (m_rgb_state != false) {
                 m_rgb_state = false;
-                setStatic(0, 0, 0);
+                setStatic(0, 0, 0, 0);
                 publishRGBState();
             }
         } else if (payload.equals(String(LIGHT_FADE_ON))) {
@@ -524,7 +524,7 @@ Serial.println(payload);
         } else {
             m_rgb_brightness = brightness;
             if (m_rgb_state) {
-              setStatic(m_rgb_red, m_rgb_green, m_rgb_blue);
+              setStatic(m_rgb_red, m_rgb_green, m_rgb_blue, m_rgb_brightness);
             }
             publishRGBBrightness();
         }
@@ -538,7 +538,7 @@ Serial.println(payload);
         m_rgb_blue = payload.substring(lastIndex + 1).toInt();
 
         if (m_rgb_state) {
-          setStatic(m_rgb_red, m_rgb_green, m_rgb_blue);
+          setStatic(m_rgb_red, m_rgb_green, m_rgb_blue, m_rgb_brightness);
         }
         publishRGBColor();
     }
@@ -926,17 +926,17 @@ void saveConfig() {
 //
 /////////////////////////////////////////////////////////
 
-void setStatic(uint8_t r, uint8_t g, uint8_t b) {
+void setStatic(uint8_t r, uint8_t g, uint8_t b, uint8_t bright) {
     uint16_t i = 0;
     while (i <= config.channel_count - 3) {
 #if defined(ESPS_MODE_PIXEL)
-        pixels.setValue(i++, r);
-        pixels.setValue(i++, g);
-        pixels.setValue(i++, b);
+        pixels.setValue(i++, r*bright/100);
+        pixels.setValue(i++, g*bright/100);
+        pixels.setValue(i++, b*bright/100);
 #elif defined(ESPS_MODE_SERIAL)
-        serial.setValue(i++, r);
-        serial.setValue(i++, g);
-        serial.setValue(i++, b);
+        serial.setValue(i++, r*bright/100);
+        serial.setValue(i++, g*bright/100);
+        serial.setValue(i++, b*bright/100);
 #endif
     }
 }
@@ -1007,7 +1007,7 @@ void loop() {
     } else {  // Other testmodes
         switch (config.testmode) {
             case TestMode::STATIC: {
-                setStatic(testing.r, testing.g, testing.b);
+                setStatic(testing.r, testing.g, testing.b, 100);
                 break;
             }
 
