@@ -98,6 +98,9 @@ typedef struct {
     int tmpr, tmpg, tmpb;    /* Hold temp color values*/
     uint16_t loopcount;      /* Step in fade routine */
     uint32_t last;      /* Last update */
+    bool active;      /* Active in-fade */
+    bool startfade;
+    bool stopfade;
 } mqttfade_t;
 
 /* Configuration structure */

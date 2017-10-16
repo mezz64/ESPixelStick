@@ -105,11 +105,14 @@ const char CONFIG_FILE[] = "/config.json";
 
 ESPAsyncE131        e131(10);       // ESPAsyncE131 with X buffers
 testing_t           testing;        // Testing mode
-mqttfade_t          mqttfade;       // MQTT Fade Effect
+mqttfade_t          mqttfade[3];       // MQTT Fade Effect
+//mqttfade_t          mqttfade1;       // MQTT Fade Effect 1 
+//mqttfade_t          mqttfade2;       // MQTT Fade Effect 2
 config_t            config;         // Current configuration
 uint32_t            *seqError;      // Sequence error tracking for each universe
 uint16_t            uniLast = 1;    // Last Universe to listen for
 bool                reboot = false; // Reboot flag
+bool                e131Active = false; //E131 active data flag
 AsyncWebServer      web(HTTP_PORT); // Web Server
 AsyncWebSocket      ws("/ws");      // Web Socket Plugin
 uint8_t             *seqTracker;    // Current sequence numbers for each Universe */
@@ -375,6 +378,12 @@ void onMqttConnect(bool sessionPresent) {
     mqtt.subscribe(String(config.mqtt_topic + MQTT_LIGHT_BRIGHTNESS_COMMAND_TOPIC).c_str(), 0);
     mqtt.subscribe(String(config.mqtt_topic + MQTT_LIGHT_RGB_COMMAND_TOPIC).c_str(), 0);
 
+    for (int i = 0; i < 3; i++) {
+        mqttfade[i].active = false;
+        mqttfade[i].startfade = false;
+        mqttfade[i].stopfade = false;
+    }
+
     // Publish state
     publishRGBState();
     publishRGBBrightness();
@@ -420,27 +429,27 @@ Serial.println(payload);
         } else if (payload.equals(String(LIGHT_FADE_ON))) {
             if (m_rgb_state != true) {
                 m_rgb_state = true;
-                mqttfade.stepr = calculateStep(0, m_rgb_red);
-                mqttfade.stepg = calculateStep(0, m_rgb_green);
-                mqttfade.stepb = calculateStep(0, m_rgb_blue);
-                mqttfade.tmpr = 0;
-                mqttfade.tmpg = 0;
-                mqttfade.tmpb = 0;
-                mqttfade.loopcount = 0;
-                mqttfade.last = 0;
+                mqttfade[0].stepr = calculateStep(0, m_rgb_red);
+                mqttfade[0].stepg = calculateStep(0, m_rgb_green);
+                mqttfade[0].stepb = calculateStep(0, m_rgb_blue);
+                mqttfade[0].tmpr = 0;
+                mqttfade[0].tmpg = 0;
+                mqttfade[0].tmpb = 0;
+                mqttfade[0].loopcount = 0;
+                mqttfade[0].last = 0;
                 config.testmode = TestMode::MQTT_FADEON;
             }
         } else if (payload.equals(String(LIGHT_FADE_OFF))) {
             if (m_rgb_state) {
                 m_rgb_state = false;
-                mqttfade.stepr = calculateStep(m_rgb_red, 0);
-                mqttfade.stepg = calculateStep(m_rgb_green, 0);
-                mqttfade.stepb = calculateStep(m_rgb_blue, 0);
-                mqttfade.tmpr = m_rgb_red;
-                mqttfade.tmpg = m_rgb_green;
-                mqttfade.tmpb = m_rgb_blue;
-                mqttfade.loopcount = 0;
-                mqttfade.last = 0;
+                mqttfade[0].stepr = calculateStep(m_rgb_red, 0);
+                mqttfade[0].stepg = calculateStep(m_rgb_green, 0);
+                mqttfade[0].stepb = calculateStep(m_rgb_blue, 0);
+                mqttfade[0].tmpr = m_rgb_red;
+                mqttfade[0].tmpg = m_rgb_green;
+                mqttfade[0].tmpb = m_rgb_blue;
+                mqttfade[0].loopcount = 0;
+                mqttfade[0].last = 0;
                 config.testmode = TestMode::MQTT_FADEOFF;
             }
         }
@@ -450,31 +459,31 @@ Serial.println(payload);
         } else if (payload.equals(String(LIGHT_OFF))) {
             // Not yet implemented.
         } else if (payload.equals(String(LIGHT_FADE_ON))) {
-            if (m_rgb_state != true) {
+            //if (m_rgb_state != true) {
                 m_rgb_state = true;
-                mqttfade.stepr = calculateStep(0, m_rgb_red);
-                mqttfade.stepg = calculateStep(0, m_rgb_green);
-                mqttfade.stepb = calculateStep(0, m_rgb_blue);
-                mqttfade.tmpr = 0;
-                mqttfade.tmpg = 0;
-                mqttfade.tmpb = 0;
-                mqttfade.loopcount = 0;
-                mqttfade.last = 0;
+                mqttfade[1].stepr = calculateStep(0, m_rgb_red);
+                mqttfade[1].stepg = calculateStep(0, m_rgb_green);
+                mqttfade[1].stepb = calculateStep(0, m_rgb_blue);
+                mqttfade[1].tmpr = 0;
+                mqttfade[1].tmpg = 0;
+                mqttfade[1].tmpb = 0;
+                mqttfade[1].loopcount = 0;
+                mqttfade[1].last = 0;
                 config.testmode = TestMode::MQTT_FADEON1;
-            }
+            //}
         } else if (payload.equals(String(LIGHT_FADE_OFF))) {
-            if (m_rgb_state) {
+            //if (m_rgb_state) {
                 m_rgb_state = false;
-                mqttfade.stepr = calculateStep(m_rgb_red, 0);
-                mqttfade.stepg = calculateStep(m_rgb_green, 0);
-                mqttfade.stepb = calculateStep(m_rgb_blue, 0);
-                mqttfade.tmpr = m_rgb_red;
-                mqttfade.tmpg = m_rgb_green;
-                mqttfade.tmpb = m_rgb_blue;
-                mqttfade.loopcount = 0;
-                mqttfade.last = 0;
+                mqttfade[1].stepr = calculateStep(m_rgb_red, 0);
+                mqttfade[1].stepg = calculateStep(m_rgb_green, 0);
+                mqttfade[1].stepb = calculateStep(m_rgb_blue, 0);
+                mqttfade[1].tmpr = m_rgb_red;
+                mqttfade[1].tmpg = m_rgb_green;
+                mqttfade[1].tmpb = m_rgb_blue;
+                mqttfade[1].loopcount = 0;
+                mqttfade[1].last = 0;
                 config.testmode = TestMode::MQTT_FADEOFF1;
-            }
+            //}
         }
     } else if (String(config.mqtt_topic + MQTT_LIGHT_COMMAND_TOPIC2).equals(topic)) {
         if (payload.equals(String(LIGHT_ON))) {
@@ -482,31 +491,31 @@ Serial.println(payload);
         } else if (payload.equals(String(LIGHT_OFF))) {
             // Not yet implemented.
         } else if (payload.equals(String(LIGHT_FADE_ON))) {
-            if (m_rgb_state != true) {
+            //if (m_rgb_state != true) {
                 m_rgb_state = true;
-                mqttfade.stepr = calculateStep(0, m_rgb_red);
-                mqttfade.stepg = calculateStep(0, m_rgb_green);
-                mqttfade.stepb = calculateStep(0, m_rgb_blue);
-                mqttfade.tmpr = 0;
-                mqttfade.tmpg = 0;
-                mqttfade.tmpb = 0;
-                mqttfade.loopcount = 0;
-                mqttfade.last = 0;
+                mqttfade[2].stepr = calculateStep(0, m_rgb_red);
+                mqttfade[2].stepg = calculateStep(0, m_rgb_green);
+                mqttfade[2].stepb = calculateStep(0, m_rgb_blue);
+                mqttfade[2].tmpr = 0;
+                mqttfade[2].tmpg = 0;
+                mqttfade[2].tmpb = 0;
+                mqttfade[2].loopcount = 0;
+                mqttfade[2].last = 0;
                 config.testmode = TestMode::MQTT_FADEON2;
-            }
+            //}
         } else if (payload.equals(String(LIGHT_FADE_OFF))) {
-            if (m_rgb_state) {
+            //if (m_rgb_state) {
                 m_rgb_state = false;
-                mqttfade.stepr = calculateStep(m_rgb_red, 0);
-                mqttfade.stepg = calculateStep(m_rgb_green, 0);
-                mqttfade.stepb = calculateStep(m_rgb_blue, 0);
-                mqttfade.tmpr = m_rgb_red;
-                mqttfade.tmpg = m_rgb_green;
-                mqttfade.tmpb = m_rgb_blue;
-                mqttfade.loopcount = 0;
-                mqttfade.last = 0;
+                mqttfade[2].stepr = calculateStep(m_rgb_red, 0);
+                mqttfade[2].stepg = calculateStep(m_rgb_green, 0);
+                mqttfade[2].stepb = calculateStep(m_rgb_blue, 0);
+                mqttfade[2].tmpr = m_rgb_red;
+                mqttfade[2].tmpg = m_rgb_green;
+                mqttfade[2].tmpb = m_rgb_blue;
+                mqttfade[2].loopcount = 0;
+                mqttfade[2].last = 0;
                 config.testmode = TestMode::MQTT_FADEOFF2;
-            }
+            //}
         }
     } else if (String(config.mqtt_topic + MQTT_LIGHT_BRIGHTNESS_COMMAND_TOPIC).equals(topic)) {
         uint8_t brightness = payload.toInt();
@@ -947,20 +956,7 @@ void loop() {
         ESP.restart();
     }
 
-    if (config.testmode == TestMode::DISABLED || config.testmode == TestMode::VIEW_STREAM || 
-        config.testmode == TestMode::MQTT_FADEON1 || config.testmode == TestMode::MQTT_FADEOFF1 ||
-        config.testmode == TestMode::MQTT_FADEON2 || config.testmode == TestMode::MQTT_FADEOFF2) {
-        uint16_t dataStartlimit = 0;
-        uint16_t dataStoplimit = config.channel_count;
-        if (config.testmode == TestMode::MQTT_FADEON1 || config.testmode == TestMode::MQTT_FADEOFF1) {
-            //These actions impose a limit on dataStart
-            dataStartlimit = (config.channel_count / 2);
-        }
-        if (config.testmode == TestMode::MQTT_FADEON2 || config.testmode == TestMode::MQTT_FADEOFF2) {
-            //These actions impose a limit on dataStop
-            dataStoplimit = (config.channel_count / 2);
-        }
-          
+    if (config.testmode == TestMode::DISABLED || config.testmode == TestMode::VIEW_STREAM) {
         // Parse a packet and update pixels
         if (!e131.isEmpty()) {
             e131.pull(&packet);
@@ -998,11 +994,6 @@ void loop() {
                     buffloc = config.channel_start - 1;
                 }
 
-                if (dataStart < dataStartlimit)
-                    dataStart = dataStartlimit;
-                if (dataStop > dataStoplimit)
-                    dataStop = dataStoplimit; 
-
                 for (int i = dataStart; i < dataStop; i++) {
 #if defined(ESPS_MODE_PIXEL)
                     pixels.setValue(i, data[buffloc]);
@@ -1013,18 +1004,6 @@ void loop() {
                 }
             }
         }
-
-        //Handle MQTT Single Channel Fades
-        if (config.testmode == TestMode::MQTT_FADEON1) {
-            fadeOn(0, dataStoplimit, false);
-        } else if (config.testmode == TestMode::MQTT_FADEON2) {
-            fadeOn(dataStartlimit, config.channel_count, false);
-        } else if (config.testmode == TestMode::MQTT_FADEON2) {
-            fadeOff(0, dataStoplimit);
-        } else if (config.testmode == TestMode::MQTT_FADEON2) {
-            fadeOff(dataStartlimit, config.channel_count);
-        }
-
     } else {  // Other testmodes
         switch (config.testmode) {
             case TestMode::STATIC: {
@@ -1113,16 +1092,25 @@ void loop() {
                 
             case TestMode::MQTT_FADEON:
                 //Fade On things           
-                fadeOn(0, config.channel_count, true);
+                fadeOn(0, config.channel_count, true, 0);
                 break;
 
             case TestMode::MQTT_FADEOFF:
                 //Fade Off things       
-                fadeOff(0, config.channel_count);
+                fadeOff(0, config.channel_count, 0);
                 break;
-              
         }
     }
+
+   
+    if (config.testmode == TestMode::MQTT_FADEON1)
+        fadeOn(0, config.channel_count / 2, true, 1);
+    if (config.testmode == TestMode::MQTT_FADEON2)
+        fadeOn(config.channel_count / 2, config.channel_count, true, 2);
+    if (config.testmode == TestMode::MQTT_FADEOFF1)
+        fadeOff(0, config.channel_count / 2, 1);
+    if (config.testmode == TestMode::MQTT_FADEOFF2)
+        fadeOff(config.channel_count / 2, config.channel_count, 2);
 
 
 /* Streaming refresh */
@@ -1141,51 +1129,79 @@ void loop() {
 //  MQTT Fade Helpers
 //
 /////////////////////////////////////////////////////////
-void fadeOn(int chStart, int chStop, bool hold) {
-    if (millis() - mqttfade.last > MQTT_FADE_LENGTH) {
-        if (mqttfade.loopcount <= 1020) {
-            mqttfade.last = millis();
-            mqttfade.tmpr = calculateVal(mqttfade.stepr, mqttfade.tmpr, mqttfade.loopcount);
-            mqttfade.tmpg = calculateVal(mqttfade.stepg, mqttfade.tmpg, mqttfade.loopcount);
-            mqttfade.tmpb = calculateVal(mqttfade.stepb, mqttfade.tmpb, mqttfade.loopcount);
+void fadeOn(int chStart, int chStop, bool hold, int string) {
+    //Need to see if it's necessary to clear the other channel
+    uint8_t* tpixdata = pixels.getData();
+    if ((chStop - chStart) < config.channel_count) {
+        //Must be only fading one side
+        if (chStart > 0) {
+            if (tpixdata[0] != m_rgb_red) {
+                //Otherside should be wiped
+                for (int i=0; i < chStart; i++)
+                    pixels.setValue(i, 0);
+            }
+        } else {
+            if (tpixdata[chStop + 1] != m_rgb_red) {
+                //Otherside should be wiped
+                for (int i=chStop+1; i < config.channel_count; i++)
+                    pixels.setValue(i, 0);
+            }
+        }
+    }
+    
+    if (millis() - mqttfade[string].last > MQTT_FADE_LENGTH) {
+        if (mqttfade[string].loopcount <= 1020) {
+            mqttfade[string].active = true;
+            mqttfade[string].last = millis();
+            mqttfade[string].tmpr = calculateVal(mqttfade[string].stepr, mqttfade[string].tmpr, mqttfade[string].loopcount);
+            mqttfade[string].tmpg = calculateVal(mqttfade[string].stepg, mqttfade[string].tmpg, mqttfade[string].loopcount);
+            mqttfade[string].tmpb = calculateVal(mqttfade[string].stepb, mqttfade[string].tmpb, mqttfade[string].loopcount);
 #if defined(ESPS_MODE_PIXEL)
         // Populate pixels
-        for (int i=chStart; i < (chStop / 3); i++) {
+        for (int i=(chStart / 3); i < (chStop / 3); i++) {
             int ch_offset = i*3;
-            pixels.setValue(ch_offset++, mqttfade.tmpr);
-            pixels.setValue(ch_offset++, mqttfade.tmpg);
-            pixels.setValue(ch_offset, mqttfade.tmpb);
+            pixels.setValue(ch_offset++, mqttfade[string].tmpr);
+            pixels.setValue(ch_offset++, mqttfade[string].tmpg);
+            pixels.setValue(ch_offset, mqttfade[string].tmpb);
         }
 #endif
-            mqttfade.loopcount++;
+            mqttfade[string].loopcount++;
         } else {
-            publishRGBState();
+            //publishRGBState();
             if (hold)
                 config.testmode = TestMode::MQTT;
         }
     }
 }
 
-void fadeOff(int chStart, int chStop) {
-    if (millis() - mqttfade.last > MQTT_FADE_LENGTH) {
-        if (mqttfade.loopcount <= 1020) {
-            mqttfade.last = millis();
-            mqttfade.tmpr = calculateVal(mqttfade.stepr, mqttfade.tmpr, mqttfade.loopcount);
-            mqttfade.tmpg = calculateVal(mqttfade.stepg, mqttfade.tmpg, mqttfade.loopcount);
-            mqttfade.tmpb = calculateVal(mqttfade.stepb, mqttfade.tmpb, mqttfade.loopcount);
+void fadeOff(int chStart, int chStop, int string) {
+    if (millis() - mqttfade[string].last > MQTT_FADE_LENGTH) {
+        if (mqttfade[string].loopcount <= 1020) {
+            mqttfade[string].last = millis();
+            mqttfade[string].tmpr = calculateVal(mqttfade[string].stepr, mqttfade[string].tmpr, mqttfade[string].loopcount);
+            mqttfade[string].tmpg = calculateVal(mqttfade[string].stepg, mqttfade[string].tmpg, mqttfade[string].loopcount);
+            mqttfade[string].tmpb = calculateVal(mqttfade[string].stepb, mqttfade[string].tmpb, mqttfade[string].loopcount);
 #if defined(ESPS_MODE_PIXEL)
         // Populate pixels
-        for (int i=chStart; i < (chStop / 3); i++) {
+        for (int i=(chStart / 3); i < (chStop / 3); i++) {
             int ch_offset = i*3;
-            pixels.setValue(ch_offset++, mqttfade.tmpr);
-            pixels.setValue(ch_offset++, mqttfade.tmpg);
-            pixels.setValue(ch_offset, mqttfade.tmpb);
+            pixels.setValue(ch_offset++, mqttfade[string].tmpr);
+            pixels.setValue(ch_offset++, mqttfade[string].tmpg);
+            pixels.setValue(ch_offset, mqttfade[string].tmpb);
         }
 #endif
-            mqttfade.loopcount++;
+            mqttfade[string].loopcount++;
         } else {
-            publishRGBState();
-            config.testmode = TestMode::DISABLED;
+            mqttfade[string].active = false;
+            //publishRGBState();
+            int i;
+            for (i = 0; i < 3; i++)
+                if (mqttfade[i].active)
+                    break;
+            if (i == 3) { //all false
+                config.testmode = TestMode::DISABLED;
+                //publishRGBState();
+            }
         }
     }
 }
