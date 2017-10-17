@@ -201,7 +201,7 @@ void ICACHE_RAM_ATTR PixelDriver::handleWS2811(void *param) {
     /* Process if UART1 */
     if (READ_PERI_REG(UART_INT_ST(UART1))) {
         // Fill the FIFO with new data
-        uart_buffer = fillWS2811(uart_buffer, uart_buffer_tail);
+        uart_buffer = fillWS2811(uart_buffer, uart_buffer_tail, 1);
 
         // Disable TX interrupt when done
         if (uart_buffer == uart_buffer_tail)
@@ -214,7 +214,7 @@ void ICACHE_RAM_ATTR PixelDriver::handleWS2811(void *param) {
     /* Process if UART0 */
     if (READ_PERI_REG(UART_INT_ST(UART0))) {
       // Fill the FIFO with new data
-      uart_buffer2 = fillWS28112(uart_buffer2, uart_buffer_tail2);
+      uart_buffer2 = fillWS2811(uart_buffer2, uart_buffer_tail2, 0);
 
       // Disable TX interrupt when done
       if (uart_buffer2 == uart_buffer_tail2)
@@ -226,108 +226,53 @@ void ICACHE_RAM_ATTR PixelDriver::handleWS2811(void *param) {
 }
 
 const uint8_t* ICACHE_RAM_ATTR PixelDriver::fillWS2811(const uint8_t *buff,
-        const uint8_t *tail) {
+        const uint8_t *tail, uint8_t port) {
 
-    uint8_t avail = (UART_TX_FIFO_SIZE - getFifoLength()) / 4;
+    uint8_t avail = (UART_TX_FIFO_SIZE - getFifoLength(port)) / 4;
     if (tail - buff > avail)
         tail = buff + avail;
 
     if (ws2811gamma) {
         while (buff + 2 < tail) {
             uint8_t subpix = buff[rOffset];
-            enqueue(LOOKUP_2811[(GAMMA_2811[subpix] >> 6) & 0x3]);
-            enqueue(LOOKUP_2811[(GAMMA_2811[subpix] >> 4) & 0x3]);
-            enqueue(LOOKUP_2811[(GAMMA_2811[subpix] >> 2) & 0x3]);
-            enqueue(LOOKUP_2811[GAMMA_2811[subpix] & 0x3]);
+            enqueue(LOOKUP_2811[(GAMMA_2811[subpix] >> 6) & 0x3], port);
+            enqueue(LOOKUP_2811[(GAMMA_2811[subpix] >> 4) & 0x3], port);
+            enqueue(LOOKUP_2811[(GAMMA_2811[subpix] >> 2) & 0x3], port);
+            enqueue(LOOKUP_2811[GAMMA_2811[subpix] & 0x3], port);
 
             subpix = buff[gOffset];
-            enqueue(LOOKUP_2811[(GAMMA_2811[subpix] >> 6) & 0x3]);
-            enqueue(LOOKUP_2811[(GAMMA_2811[subpix] >> 4) & 0x3]);
-            enqueue(LOOKUP_2811[(GAMMA_2811[subpix] >> 2) & 0x3]);
-            enqueue(LOOKUP_2811[GAMMA_2811[subpix] & 0x3]);
+            enqueue(LOOKUP_2811[(GAMMA_2811[subpix] >> 6) & 0x3], port);
+            enqueue(LOOKUP_2811[(GAMMA_2811[subpix] >> 4) & 0x3], port);
+            enqueue(LOOKUP_2811[(GAMMA_2811[subpix] >> 2) & 0x3], port);
+            enqueue(LOOKUP_2811[GAMMA_2811[subpix] & 0x3], port);
 
             subpix = buff[bOffset];
-            enqueue(LOOKUP_2811[(GAMMA_2811[subpix] >> 6) & 0x3]);
-            enqueue(LOOKUP_2811[(GAMMA_2811[subpix] >> 4) & 0x3]);
-            enqueue(LOOKUP_2811[(GAMMA_2811[subpix] >> 2) & 0x3]);
-            enqueue(LOOKUP_2811[GAMMA_2811[subpix] & 0x3]);
+            enqueue(LOOKUP_2811[(GAMMA_2811[subpix] >> 6) & 0x3], port);
+            enqueue(LOOKUP_2811[(GAMMA_2811[subpix] >> 4) & 0x3], port);
+            enqueue(LOOKUP_2811[(GAMMA_2811[subpix] >> 2) & 0x3], port);
+            enqueue(LOOKUP_2811[GAMMA_2811[subpix] & 0x3], port);
 
             buff += 3;
         }
     } else {
         while (buff + 2 < tail) {
             uint8_t subpix = buff[rOffset];
-            enqueue(LOOKUP_2811[(subpix >> 6) & 0x3]);
-            enqueue(LOOKUP_2811[(subpix >> 4) & 0x3]);
-            enqueue(LOOKUP_2811[(subpix >> 2) & 0x3]);
-            enqueue(LOOKUP_2811[subpix & 0x3]);
+            enqueue(LOOKUP_2811[(subpix >> 6) & 0x3], port);
+            enqueue(LOOKUP_2811[(subpix >> 4) & 0x3], port);
+            enqueue(LOOKUP_2811[(subpix >> 2) & 0x3], port);
+            enqueue(LOOKUP_2811[subpix & 0x3], port);
 
             subpix = buff[gOffset];
-            enqueue(LOOKUP_2811[(subpix >> 6) & 0x3]);
-            enqueue(LOOKUP_2811[(subpix >> 4) & 0x3]);
-            enqueue(LOOKUP_2811[(subpix >> 2) & 0x3]);
-            enqueue(LOOKUP_2811[subpix & 0x3]);
+            enqueue(LOOKUP_2811[(subpix >> 6) & 0x3], port);
+            enqueue(LOOKUP_2811[(subpix >> 4) & 0x3], port);
+            enqueue(LOOKUP_2811[(subpix >> 2) & 0x3], port);
+            enqueue(LOOKUP_2811[subpix & 0x3], port);
 
             subpix = buff[bOffset];
-            enqueue(LOOKUP_2811[(subpix >> 6) & 0x3]);
-            enqueue(LOOKUP_2811[(subpix >> 4) & 0x3]);
-            enqueue(LOOKUP_2811[(subpix >> 2) & 0x3]);
-            enqueue(LOOKUP_2811[subpix & 0x3]);
-
-            buff += 3;
-        }
-    }
-    return buff;
-}
-
-const uint8_t* ICACHE_RAM_ATTR PixelDriver::fillWS28112(const uint8_t *buff,
-        const uint8_t *tail) {
-
-    uint8_t avail = (UART_TX_FIFO_SIZE - getFifoLength2()) / 4;
-    if (tail - buff > avail)
-        tail = buff + avail;
-
-    if (ws2811gamma) {
-        while (buff + 2 < tail) {
-            uint8_t subpix = buff[rOffset];
-            enqueue2(LOOKUP_2811[(GAMMA_2811[subpix] >> 6) & 0x3]);
-            enqueue2(LOOKUP_2811[(GAMMA_2811[subpix] >> 4) & 0x3]);
-            enqueue2(LOOKUP_2811[(GAMMA_2811[subpix] >> 2) & 0x3]);
-            enqueue2(LOOKUP_2811[GAMMA_2811[subpix] & 0x3]);
-
-            subpix = buff[gOffset];
-            enqueue2(LOOKUP_2811[(GAMMA_2811[subpix] >> 6) & 0x3]);
-            enqueue2(LOOKUP_2811[(GAMMA_2811[subpix] >> 4) & 0x3]);
-            enqueue2(LOOKUP_2811[(GAMMA_2811[subpix] >> 2) & 0x3]);
-            enqueue2(LOOKUP_2811[GAMMA_2811[subpix] & 0x3]);
-
-            subpix = buff[bOffset];
-            enqueue2(LOOKUP_2811[(GAMMA_2811[subpix] >> 6) & 0x3]);
-            enqueue2(LOOKUP_2811[(GAMMA_2811[subpix] >> 4) & 0x3]);
-            enqueue2(LOOKUP_2811[(GAMMA_2811[subpix] >> 2) & 0x3]);
-            enqueue2(LOOKUP_2811[GAMMA_2811[subpix] & 0x3]);
-
-            buff += 3;
-        }
-    } else {
-        while (buff + 2 < tail) {
-            uint8_t subpix = buff[rOffset];
-            enqueue2(LOOKUP_2811[(subpix >> 6) & 0x3]);
-            enqueue2(LOOKUP_2811[(subpix >> 4) & 0x3]);
-            enqueue2(LOOKUP_2811[(subpix >> 2) & 0x3]);
-            enqueue2(LOOKUP_2811[subpix & 0x3]);
-
-            subpix = buff[gOffset];
-            enqueue2(LOOKUP_2811[(subpix >> 6) & 0x3]);
-            enqueue2(LOOKUP_2811[(subpix >> 4) & 0x3]);
-            enqueue2(LOOKUP_2811[(subpix >> 2) & 0x3]);
-            enqueue2(LOOKUP_2811[subpix & 0x3]);
-
-            subpix = buff[bOffset];
-            enqueue2(LOOKUP_2811[(subpix >> 6) & 0x3]);
-            enqueue2(LOOKUP_2811[(subpix >> 4) & 0x3]);
-            enqueue2(LOOKUP_2811[(subpix >> 2) & 0x3]);
-            enqueue2(LOOKUP_2811[subpix & 0x3]);
+            enqueue(LOOKUP_2811[(subpix >> 6) & 0x3], port);
+            enqueue(LOOKUP_2811[(subpix >> 4) & 0x3], port);
+            enqueue(LOOKUP_2811[(subpix >> 2) & 0x3], port);
+            enqueue(LOOKUP_2811[subpix & 0x3], port);
 
             buff += 3;
         }

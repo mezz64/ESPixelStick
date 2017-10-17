@@ -59,6 +59,11 @@ static void _u0_putc(char c){
   while(((U0S >> USTXC) & 0x7F) == 0x7F);
   U0F = c;
 }
+
+static void _u1_putc(char c){
+  while(((U1S >> USTXC) & 0x7F) == 0x7F);
+  U1F = c;
+}
 #endif
 
 /////////////////////////////////////////////////////////
@@ -106,8 +111,6 @@ const char CONFIG_FILE[] = "/config.json";
 ESPAsyncE131        e131(10);       // ESPAsyncE131 with X buffers
 testing_t           testing;        // Testing mode
 mqttfade_t          mqttfade[3];       // MQTT Fade Effect
-//mqttfade_t          mqttfade1;       // MQTT Fade Effect 1 
-//mqttfade_t          mqttfade2;       // MQTT Fade Effect 2
 config_t            config;         // Current configuration
 uint32_t            *seqError;      // Sequence error tracking for each universe
 uint16_t            uniLast = 1;    // Last Universe to listen for
@@ -380,8 +383,6 @@ void onMqttConnect(bool sessionPresent) {
 
     for (int i = 0; i < 3; i++) {
         mqttfade[i].active = false;
-        mqttfade[i].startfade = false;
-        mqttfade[i].stopfade = false;
     }
 
     // Publish state

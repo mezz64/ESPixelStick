@@ -55,8 +55,6 @@ const char LOOKUP_2811[4] = {
     0b00000100      // 11 - (1)110 111(0)
 };
 
-#define CH_PER_PIN    450
-
 #define GECE_DEFAULT_BRIGHTNESS 0xCC
 
 #define GECE_ADDRESS_MASK       0x03F00000
@@ -136,32 +134,38 @@ class PixelDriver {
 
     /* FIFO Handlers */
     static const uint8_t* ICACHE_RAM_ATTR fillWS2811(const uint8_t *buff,
-            const uint8_t *tail);
-    static const uint8_t* ICACHE_RAM_ATTR fillWS28112(const uint8_t *buff,
-            const uint8_t *tail);
+            const uint8_t *tail, uint8_t port);
+    //static const uint8_t* ICACHE_RAM_ATTR fillWS28112(const uint8_t *buff,
+    //        const uint8_t *tail);
 
     /* Interrupt Handlers */
     static void ICACHE_RAM_ATTR handleWS2811(void *param);
 
     /* Returns number of bytes waiting in the TX FIFO of UART1 */
-    static inline uint8_t getFifoLength() {
-        return (U1S >> USTXC) & 0xff;
+    static inline uint8_t getFifoLength(uint8_t port) {
+        if (port == 1)
+            return (U1S >> USTXC) & 0xff;
+        else if (port == 0)
+            return (U0S >> USTXC) & 0xff;
     }
 
     /* Returns number of bytes waiting in the TX FIFO of UART0 */
-    static inline uint8_t getFifoLength2() {
-        return (U0S >> USTXC) & 0xff;
-    }
+    //static inline uint8_t getFifoLength2() {
+    //    return (U0S >> USTXC) & 0xff;
+    //}
 
     /* Append a byte to the TX FIFO of UART1 */
-    static inline void enqueue(uint8_t byte) {
-        U1F = byte;
+    static inline void enqueue(uint8_t byte, uint8_t port) {
+        if (port == 1)
+            U1F = byte;
+        else if (port == 0)
+            U0F = byte;
     }
 
     /* Append a byte to the TX FIFO of UART0 */
-    static inline void enqueue2(uint8_t byte) {
-        U0F = byte;
-    }
+    //static inline void enqueue2(uint8_t byte) {
+    //    U0F = byte;
+    //}
 };
 
 #endif /* PIXELDRIVER_H_ */
