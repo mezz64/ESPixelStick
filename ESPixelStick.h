@@ -84,7 +84,7 @@ enum class TestMode : uint8_t {
     MQTT_FADEON1,
     MQTT_FADEOFF1,
     MQTT_FADEON2,
-    MQTT_FADEOFF2
+    MQTT_FADEOFF2,
 };
 
 typedef struct {
@@ -99,6 +99,8 @@ typedef struct {
     uint16_t loopcount;      /* Step in fade routine */
     uint32_t last;      /* Last update */
     bool active;      /* Active in-fade */
+    bool fadeon;
+    bool fadeoff;
 } mqttfade_t;
 
 /* Configuration structure */

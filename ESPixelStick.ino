@@ -125,6 +125,7 @@ WiFiEventHandler    wifiDisconnectHandler;  // WiFi disconnect handler
 Ticker              wifiTicker; // Ticker to handle WiFi
 AsyncMqttClient     mqtt;       // MQTT object
 Ticker              mqttTicker; // Ticker to handle MQTT
+TestMode            m_last_test;
 
 // Output Drivers
 #if defined(ESPS_MODE_PIXEL)
@@ -414,6 +415,7 @@ Serial.println(payload);
     if (String(config.mqtt_topic + MQTT_LIGHT_COMMAND_TOPIC).equals(topic)) {
     // Test if the payload is equal to "ON" or "OFF"
         if (payload.equals(String(LIGHT_ON))) {
+            m_last_test = config.testmode;
             config.testmode = TestMode::MQTT;
             if (m_rgb_state != true) {
                 m_rgb_state = true;
@@ -421,6 +423,7 @@ Serial.println(payload);
                 publishRGBState();
             }
         } else if (payload.equals(String(LIGHT_OFF))) {
+            m_last_test = config.testmode;
             config.testmode = TestMode::DISABLED;
             if (m_rgb_state != false) {
                 m_rgb_state = false;
@@ -438,6 +441,7 @@ Serial.println(payload);
                 mqttfade[0].tmpb = 0;
                 mqttfade[0].loopcount = 0;
                 mqttfade[0].last = 0;
+                m_last_test = config.testmode;
                 config.testmode = TestMode::MQTT_FADEON;
             }
         } else if (payload.equals(String(LIGHT_FADE_OFF))) {
@@ -451,6 +455,7 @@ Serial.println(payload);
                 mqttfade[0].tmpb = m_rgb_blue;
                 mqttfade[0].loopcount = 0;
                 mqttfade[0].last = 0;
+                m_last_test = config.testmode;
                 config.testmode = TestMode::MQTT_FADEOFF;
             }
         }
@@ -470,7 +475,10 @@ Serial.println(payload);
                 mqttfade[1].tmpb = 0;
                 mqttfade[1].loopcount = 0;
                 mqttfade[1].last = 0;
-                config.testmode = TestMode::MQTT_FADEON1;
+                m_last_test = config.testmode;
+                mqttfade[1].fadeon = true;
+                config.testmode = TestMode::MQTT;
+                //config.testmode = TestMode::MQTT_FADEON1;
             //}
         } else if (payload.equals(String(LIGHT_FADE_OFF))) {
             //if (m_rgb_state) {
@@ -483,7 +491,10 @@ Serial.println(payload);
                 mqttfade[1].tmpb = m_rgb_blue;
                 mqttfade[1].loopcount = 0;
                 mqttfade[1].last = 0;
-                config.testmode = TestMode::MQTT_FADEOFF1;
+                m_last_test = config.testmode;
+                mqttfade[1].fadeoff = true;
+                config.testmode = TestMode::MQTT;
+                //config.testmode = TestMode::MQTT_FADEOFF1;
             //}
         }
     } else if (String(config.mqtt_topic + MQTT_LIGHT_COMMAND_TOPIC2).equals(topic)) {
@@ -502,7 +513,10 @@ Serial.println(payload);
                 mqttfade[2].tmpb = 0;
                 mqttfade[2].loopcount = 0;
                 mqttfade[2].last = 0;
-                config.testmode = TestMode::MQTT_FADEON2;
+                m_last_test = config.testmode;
+                mqttfade[2].fadeon = true;
+                config.testmode = TestMode::MQTT;
+                //config.testmode = TestMode::MQTT_FADEON2;
             //}
         } else if (payload.equals(String(LIGHT_FADE_OFF))) {
             //if (m_rgb_state) {
@@ -515,7 +529,10 @@ Serial.println(payload);
                 mqttfade[2].tmpb = m_rgb_blue;
                 mqttfade[2].loopcount = 0;
                 mqttfade[2].last = 0;
-                config.testmode = TestMode::MQTT_FADEOFF2;
+                m_last_test = config.testmode;
+                mqttfade[2].fadeoff = true;
+                config.testmode = TestMode::MQTT;
+                //config.testmode = TestMode::MQTT_FADEOFF2;
             //}
         }
     } else if (String(config.mqtt_topic + MQTT_LIGHT_BRIGHTNESS_COMMAND_TOPIC).equals(topic)) {
@@ -1104,13 +1121,17 @@ void loop() {
     }
 
    
-    if (config.testmode == TestMode::MQTT_FADEON1)
+    //if (config.testmode == TestMode::MQTT_FADEON1)
+    if (mqttfade[1].fadeon)
         fadeOn(0, config.channel_count / 2, true, 1);
-    if (config.testmode == TestMode::MQTT_FADEON2)
+    if (mqttfade[2].fadeon)
+    //if (config.testmode == TestMode::MQTT_FADEON2)
         fadeOn(config.channel_count / 2, config.channel_count, true, 2);
-    if (config.testmode == TestMode::MQTT_FADEOFF1)
+    if (mqttfade[1].fadeoff)
+    //if (config.testmode == TestMode::MQTT_FADEOFF1)
         fadeOff(0, config.channel_count / 2, 1);
-    if (config.testmode == TestMode::MQTT_FADEOFF2)
+    if (mqttfade[2].fadeoff)
+    //if (config.testmode == TestMode::MQTT_FADEOFF2)
         fadeOff(config.channel_count / 2, config.channel_count, 2);
 
 
@@ -1132,21 +1153,13 @@ void loop() {
 /////////////////////////////////////////////////////////
 void fadeOn(int chStart, int chStop, bool hold, int string) {
     //Need to see if it's necessary to clear the other channel
-    uint8_t* tpixdata = pixels.getData();
-    if ((chStop - chStart) < config.channel_count) {
-        //Must be only fading one side
+    if (m_last_test == TestMode::DISABLED) {
         if (chStart > 0) {
-            if (tpixdata[0] != m_rgb_red) {
-                //Otherside should be wiped
-                for (int i=0; i < chStart; i++)
+            for (int i=0; i < chStart; i++)
                     pixels.setValue(i, 0);
-            }
         } else {
-            if (tpixdata[chStop + 1] != m_rgb_red) {
-                //Otherside should be wiped
-                for (int i=chStop+1; i < config.channel_count; i++)
+            for (int i=chStop; i < config.channel_count; i++)
                     pixels.setValue(i, 0);
-            }
         }
     }
     
@@ -1169,8 +1182,10 @@ void fadeOn(int chStart, int chStop, bool hold, int string) {
             mqttfade[string].loopcount++;
         } else {
             //publishRGBState();
+            mqttfade[string].fadeon = false;
             if (hold)
                 config.testmode = TestMode::MQTT;
+                publishRGBState();
         }
     }
 }
@@ -1194,14 +1209,15 @@ void fadeOff(int chStart, int chStop, int string) {
             mqttfade[string].loopcount++;
         } else {
             mqttfade[string].active = false;
+            mqttfade[string].fadeoff = false;
             //publishRGBState();
             int i;
             for (i = 0; i < 3; i++)
                 if (mqttfade[i].active)
                     break;
-            if (i == 3) { //all false
+            if (i == 3 || string == 0) { //all false
                 config.testmode = TestMode::DISABLED;
-                //publishRGBState();
+                publishRGBState();
             }
         }
     }
