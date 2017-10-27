@@ -20,7 +20,7 @@
 #ifndef ESPIXELSTICK_H_
 #define ESPIXELSTICK_H_
 
-const char VERSION[] = "3.0-rc3";
+const char VERSION[] = "3.1-MEZZ";
 const char BUILD_DATE[] = __DATE__ " " __TIME__;
 
 /*****************************************/
@@ -133,6 +133,7 @@ typedef struct {
     uint16_t    universe_limit; /* Universe boundary limit */
     uint16_t    channel_start;  /* Channel to start listening at - 1 based */
     uint16_t    channel_count;  /* Number of channels */
+    uint16_t    channel_count2;  /* Number of channels */
     bool        multicast;      /* Enable multicast listener */
 
 #if defined(ESPS_MODE_PIXEL)

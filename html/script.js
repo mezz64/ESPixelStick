@@ -422,23 +422,26 @@ function getConfig(data) {
         mode = 'pixel';
         $('#o_pixel').removeClass('hidden');
         $('#p_count').val(config.e131.channel_count / 3);
+        $('#p_count2').val(config.e131.channel_count2 / 3);
         $('#p_type').val(config.pixel.type);
         $('#p_color').val(config.pixel.color);
         $('#p_gamma').prop('checked', config.pixel.gamma);
         
-        if(config.e131.channel_count / 3 <8 ) {
-            $('#v_columns').val(config.e131.channel_count / 3);
-        } else if (config.e131.channel_count / 3 <50 ) {
+        if((config.e131.channel_count + config.e131.channel_count2) / 3 <8 ) {
+            $('#v_columns').val((config.e131.channel_count + config.e131.channel_count2) / 3);
+        } else if ((config.e131.channel_count + config.e131.channel_count2) / 3 <50 ) {
             $('#v_columns').val(10);
         } else {
             $('#v_columns').val(25);
         }
+
         $("input[name='viewStyle'][value='RGB']").trigger('click');
 		clearStream();
         
         // Trigger updated elements
         $('#p_type').trigger('click');
         $('#p_count').trigger('change');
+        $('#p_count2').trigger('change');
     }
 
     if (config.device.mode == 1) {  // Serial
@@ -448,7 +451,7 @@ function getConfig(data) {
         $('#s_proto').val(config.serial.type);
         $('#s_baud').val(config.serial.baudrate);
         
-        if (config.e131.channel_count<=64 ) {
+        if ((config.e131.channel_count + config.e131.channel_count2)<=64 ) {
             $('#v_columns').val(8);
         } else {
             $('#v_columns').val(16);
@@ -556,8 +559,10 @@ function submitWiFi() {
 
 function submitConfig() {
     var channels = parseInt($('#s_count').val());
+    var channels2 = 0;
     if (mode == 'pixel')
         channels = parseInt($('#p_count').val()) * 3;
+        channels2 = parseInt($('#p_count2').val()) * 3;
 
     var json = {
             'device': {
@@ -576,6 +581,7 @@ function submitConfig() {
                 'universe_limit': parseInt($('#universe_limit').val()),
                 'channel_start': parseInt($('#channel_start').val()),
                 'channel_count': channels,
+                'channel_count2': channels2,
                 'multicast': $('#multicast').prop('checked')
             },
             'pixel': {
@@ -593,7 +599,7 @@ function submitConfig() {
 
 function refreshPixel() {
     var proto = $('#p_type option:selected').text();    
-    var size = parseInt($('#p_count').val());
+    var size = parseInt($('#p_count').val()) + parseInt($('#p_count2').val());
     var frame = 30;
     var idle = 300;
 

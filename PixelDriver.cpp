@@ -41,14 +41,14 @@ uint8_t PixelDriver::gOffset = 1;
 uint8_t PixelDriver::bOffset = 2;
 
 int PixelDriver::begin() {
-    return begin(PixelType::WS2811, PixelColor::RGB, 170);
+    return begin(PixelType::WS2811, PixelColor::RGB, 170, 0);
 }
 
 int PixelDriver::begin(PixelType type) {
-    return begin(type, PixelColor::RGB, 170);
+    return begin(type, PixelColor::RGB, 170, 0);
 }
 
-int PixelDriver::begin(PixelType type, PixelColor color, uint16_t length) {
+int PixelDriver::begin(PixelType type, PixelColor color, uint16_t length, uint16_t length2) {
     int retval = true;
 
     this->type = type;
@@ -57,12 +57,14 @@ int PixelDriver::begin(PixelType type, PixelColor color, uint16_t length) {
     updateOrder(color);
 
     if (pixdata) free(pixdata);
-    szBuffer = length * 3;
+    szBuffer = (length + length2) * 3;
     if (pixdata = static_cast<uint8_t *>(malloc(szBuffer))) {
         memset(pixdata, 0, szBuffer);
         numPixels = length;
+        numPixels2 = length2;
     } else {
         numPixels = 0;
+        numPixels2 = 0;
         szBuffer = 0;
         retval = false;
     }
@@ -90,7 +92,7 @@ int PixelDriver::begin(PixelType type, PixelColor color, uint16_t length) {
     }
 
     if (type == PixelType::WS2811) {
-        refreshTime = WS2811_TFRAME * length + WS2811_TIDLE;
+        refreshTime = WS2811_TFRAME * (length + length2) + WS2811_TIDLE;
         ws2811_init();
     } else if (type == PixelType::GECE) {
         refreshTime = (GECE_TFRAME + GECE_TIDLE) * length;
@@ -286,7 +288,7 @@ void PixelDriver::show() {
     if (type == PixelType::WS2811) {
     
         pixdata1 = pixdata;
-        pixdata2 = pixdata + ((numPixels / 2) * 3);
+        pixdata2 = pixdata + ((numPixels) * 3);
         //pixdata2 = pixdata + CH_PER_PIN;
       
         uart_buffer = pixdata1;

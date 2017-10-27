@@ -95,7 +95,7 @@ class PixelDriver {
  public:
     int begin();
     int begin(PixelType type);
-    int begin(PixelType type, PixelColor color, uint16_t length);
+    int begin(PixelType type, PixelColor color, uint16_t length, uint16_t length2);
     void setPin(uint8_t pin);
     void setGamma(bool gamma);
     void updateOrder(PixelColor color);
@@ -122,6 +122,7 @@ class PixelDriver {
     uint8_t     *asyncdata;     // Async buffer
     uint8_t     *pbuff;         // GECE Packet Buffer
     uint16_t    numPixels;      // Number of pixels
+    uint16_t    numPixels2;      // Number of pixels
     uint16_t    szBuffer;       // Size of Pixel buffer
     uint32_t    startTime;      // When the last frame TX started
     uint32_t    refreshTime;    // Time until we can refresh after starting a TX

@@ -178,7 +178,7 @@ void setup() {
 
     //LOG_PORT.println("");
     //LOG_PORT.print(F("ESPixelStick v"));
-    for (uint8_t i = 0; i < strlen_P(VERSION); i++)
+    //for (uint8_t i = 0; i < strlen_P(VERSION); i++)
         //LOG_PORT.print((char)(pgm_read_byte(VERSION + i)));
     //LOG_PORT.println("");
 
@@ -711,7 +711,7 @@ void updateConfig() {
     validateConfig();
 
     // Find the last universe we should listen for
-    uint16_t span = config.channel_start + config.channel_count - 1;
+    uint16_t span = config.channel_start + (config.channel_count + config.channel_count2) - 1;
     if (span % config.universe_limit)
         uniLast = config.universe + span / config.universe_limit;
     else
@@ -733,7 +733,7 @@ void updateConfig() {
 
     // Initialize for our pixel type
 #if defined(ESPS_MODE_PIXEL)
-    pixels.begin(config.pixel_type, config.pixel_color, config.channel_count / 3);
+    pixels.begin(config.pixel_type, config.pixel_color, config.channel_count / 3, config.channel_count2 / 3);
     pixels.setGamma(config.gamma);
 #elif defined(ESPS_MODE_SERIAL)
     serial.begin(&SEROUT_PORT, config.serial_type, config.channel_count, config.baudrate);
@@ -789,6 +789,7 @@ void dsDeviceConfig(JsonObject &json) {
     config.universe_limit = json["e131"]["universe_limit"];
     config.channel_start = json["e131"]["channel_start"];
     config.channel_count = json["e131"]["channel_count"];
+    config.channel_count2 = json["e131"]["channel_count2"];
     config.multicast = json["e131"]["multicast"];
 
     // MQTT
@@ -895,6 +896,7 @@ void serializeConfig(String &jsonString, bool pretty, bool creds) {
     e131["universe_limit"] = config.universe_limit;
     e131["channel_start"] = config.channel_start;
     e131["channel_count"] = config.channel_count;
+    e131["channel_count2"] = config.channel_count2;
     e131["multicast"] = config.multicast;
 
 #if defined(ESPS_MODE_PIXEL)
@@ -946,7 +948,7 @@ void saveConfig() {
 
 void setStatic(uint8_t r, uint8_t g, uint8_t b, uint8_t bright) {
     uint16_t i = 0;
-    while (i <= config.channel_count - 3) {
+    while (i <= (config.channel_count + config.channel_count2) - 3) {
 #if defined(ESPS_MODE_PIXEL)
         pixels.setValue(i++, r*bright/100);
         pixels.setValue(i++, g*bright/100);
@@ -996,7 +998,7 @@ void loop() {
                 int16_t dataStart = uniOffset * config.universe_limit - offset;
 
                 // Calculate how much data we need for this buffer
-                uint16_t dataStop = config.channel_count;
+                uint16_t dataStop = config.channel_count + config.channel_count2;
                 uint16_t channels = htons(packet.property_value_count) - 1;
                 if (config.universe_limit < channels)
                     channels = config.universe_limit;
@@ -1036,7 +1038,7 @@ void loop() {
                     testing.last = millis();
 #if defined(ESPS_MODE_PIXEL)
                     // Clear whole string
-                    for (int y =0; y < config.channel_count; y++)
+                    for (int y =0; y < (config.channel_count + config.channel_count2); y++)
                         pixels.setValue(y, 0);
                     // Set pixel at step
                     int ch_offset = testing.step*3;
@@ -1044,14 +1046,14 @@ void loop() {
                     pixels.setValue(ch_offset++, testing.g);
                     pixels.setValue(ch_offset, testing.b);
                     testing.step++;
-                    if (testing.step >= (config.channel_count/3))
+                    if (testing.step >= ((config.channel_count + config.channel_count2)/3))
                         testing.step = 0;
 #elif defined(ESPS_MODE_SERIAL)
-                    for (int y =0; y < config.channel_count; y++)
+                    for (int y =0; y < (config.channel_count + config.channel_count2); y++)
                         serial.setValue(y, 0);
                     // Set pixel at step
                     serial.setValue(testing.step++, 0xFF);
-                    if (testing.step >= config.channel_count)
+                    if (testing.step >= (config.channel_count + config.channel_count2))
                         testing.step = 0;
 #endif
                 }
@@ -1062,7 +1064,7 @@ void loop() {
                 if (millis() - testing.last > 50) {
                     testing.last = millis();
                     uint16_t i, WheelPos, num_pixels;
-                    num_pixels = config.channel_count / 3;
+                    num_pixels = (config.channel_count + config.channel_count2) / 3;
                     if (testing.step < 255) {
                         for (i=0; i < (num_pixels); i++) {
                             int ch_offset = i*3;
@@ -1110,12 +1112,12 @@ void loop() {
                 
             case TestMode::MQTT_FADEON:
                 //Fade On things           
-                fadeOn(0, config.channel_count, true, 0);
+                fadeOn(0, (config.channel_count + config.channel_count2), true, 0);
                 break;
 
             case TestMode::MQTT_FADEOFF:
                 //Fade Off things       
-                fadeOff(0, config.channel_count, 0);
+                fadeOff(0, (config.channel_count + config.channel_count2), 0);
                 break;
         }
     }
@@ -1123,16 +1125,16 @@ void loop() {
    
     //if (config.testmode == TestMode::MQTT_FADEON1)
     if (mqttfade[1].fadeon)
-        fadeOn(0, config.channel_count / 2, true, 1);
+        fadeOn(0, config.channel_count, true, 1);
     if (mqttfade[2].fadeon)
     //if (config.testmode == TestMode::MQTT_FADEON2)
-        fadeOn(config.channel_count / 2, config.channel_count, true, 2);
+        fadeOn(config.channel_count, (config.channel_count + config.channel_count2), true, 2);
     if (mqttfade[1].fadeoff)
     //if (config.testmode == TestMode::MQTT_FADEOFF1)
-        fadeOff(0, config.channel_count / 2, 1);
+        fadeOff(0, config.channel_count, 1);
     if (mqttfade[2].fadeoff)
     //if (config.testmode == TestMode::MQTT_FADEOFF2)
-        fadeOff(config.channel_count / 2, config.channel_count, 2);
+        fadeOff(config.channel_count, (config.channel_count + config.channel_count2), 2);
 
 
 /* Streaming refresh */
@@ -1158,7 +1160,7 @@ void fadeOn(int chStart, int chStop, bool hold, int string) {
             for (int i=0; i < chStart; i++)
                     pixels.setValue(i, 0);
         } else {
-            for (int i=chStop; i < config.channel_count; i++)
+            for (int i=chStop; i < (config.channel_count + config.channel_count2); i++)
                     pixels.setValue(i, 0);
         }
     }
